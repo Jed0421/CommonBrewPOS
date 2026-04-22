@@ -1,0 +1,267 @@
+﻿@using CommonBrewPOS.Models
+@{
+    ViewData["Title"] = "Archive";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var products = ViewBag.ArchivedProducts as List<Product> ?? new();
+    var users = ViewBag.ArchivedUsers as List<User> ?? new();
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Archive</h1>
+        <p class="page-subtitle">View and restore archived products and accounts</p>
+    </div>
+</div>
+
+<div class="archive-toolbar">
+    <div class="archive-filter">
+        <label for="archiveType" class="form-label">Archive Type</label>
+        <select id="archiveType" class="form-select" onchange="toggleArchiveSection()">
+            <option value="products">Products</option>
+            <option value="accounts">Accounts</option>
+        </select>
+    </div>
+</div>
+
+<div id="productsSection" class="archive-card">
+    <div class="archive-card-header">
+        <div>
+            <h3 class="archive-card-title">Archived Products</h3>
+            <p class="archive-card-subtitle">@products.Count item@(products.Count != 1 ? "s" : "")</p>
+        </div>
+        <span class="archive-badge">Products</span>
+    </div>
+
+    @if (products.Any())
+    {
+        <div class="archive-list">
+            @foreach (var p in products)
+            {
+                <div class="archive-item">
+                    <div class="archive-item-main">
+                        <div class="archive-item-title">@p.Name</div>
+                        <div class="archive-item-meta">
+                            <span>₱@p.Price.ToString("N2")</span>
+                            @if (!string.IsNullOrWhiteSpace(p.ProductType))
+                            {
+                                <span class="dot-sep">•</span>
+                                <span>@p.ProductType</span>
+                            }
+                        </div>
+                    </div>
+
+                    <form asp-action="RestoreProduct" method="post" class="archive-action">
+                        <input type="hidden" name="id" value="@p.Id" />
+                        <button type="submit" class="btn-primary btn-archive">Restore</button>
+                    </form>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="archive-empty">
+            <div class="archive-empty-icon">📦</div>
+            <p>No archived products.</p>
+        </div>
+    }
+</div>
+
+<div id="accountsSection" class="archive-card" style="display:none;">
+    <div class="archive-card-header">
+        <div>
+            <h3 class="archive-card-title">Archived Accounts</h3>
+            <p class="archive-card-subtitle">@users.Count account@(users.Count != 1 ? "s" : "")</p>
+        </div>
+        <span class="archive-badge">Accounts</span>
+    </div>
+
+    @if (users.Any())
+    {
+        <div class="archive-list">
+            @foreach (var u in users)
+            {
+                <div class="archive-item">
+                    <div class="archive-item-main">
+                        <div class="archive-item-title">@u.FullName</div>
+                        <div class="archive-item-meta">
+                            <span>@u.Username</span>
+                            @if (!string.IsNullOrWhiteSpace(u.Role))
+                            {
+                                <span class="dot-sep">•</span>
+                                <span>@u.Role</span>
+                            }
+                        </div>
+                    </div>
+
+                    <form asp-action="RestoreUser" method="post" class="archive-action">
+                        <input type="hidden" name="id" value="@u.Id" />
+                        <button type="submit" class="btn-primary btn-archive">Restore</button>
+                    </form>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="archive-empty">
+            <div class="archive-empty-icon">👤</div>
+            <p>No archived accounts.</p>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        function toggleArchiveSection() {
+            const value = document.getElementById("archiveType").value;
+            const productsSection = document.getElementById("productsSection");
+            const accountsSection = document.getElementById("accountsSection");
+
+            if (value === "products") {
+                productsSection.style.display = "block";
+                accountsSection.style.display = "none";
+            } else {
+                productsSection.style.display = "none";
+                accountsSection.style.display = "block";
+            }
+        }
+
+        toggleArchiveSection();
+    </script>
+}
+
+<style>
+    .archive-toolbar {
+        margin-bottom: 1rem;
+    }
+
+    .archive-filter {
+        max-width: 280px;
+    }
+
+    .archive-card {
+        background: var(--surface);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+        overflow: hidden;
+    }
+
+    .archive-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--border);
+        background: #fff;
+    }
+
+    .archive-card-title {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: var(--text);
+    }
+
+    .archive-card-subtitle {
+        margin: .2rem 0 0 0;
+        font-size: .85rem;
+        color: var(--text-2);
+    }
+
+    .archive-badge {
+        background: var(--orange-bg);
+        color: var(--brand);
+        border-radius: 999px;
+        padding: .35rem .7rem;
+        font-size: .75rem;
+        font-weight: 700;
+    }
+
+    .archive-list {
+        padding: .75rem 1rem 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: .75rem;
+    }
+
+    .archive-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        padding: .85rem 1rem;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--bg);
+    }
+
+    .archive-item-main {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .archive-item-title {
+        font-size: .95rem;
+        font-weight: 700;
+        color: var(--text);
+        line-height: 1.25;
+        word-break: break-word;
+    }
+
+    .archive-item-meta {
+        margin-top: .2rem;
+        font-size: .82rem;
+        color: var(--text-2);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .35rem;
+    }
+
+    .dot-sep {
+        opacity: .6;
+    }
+
+    .archive-action {
+        flex-shrink: 0;
+    }
+
+    .btn-archive {
+        padding: .55rem .95rem;
+        border: none;
+        border-radius: 10px;
+        font-size: .82rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .archive-empty {
+        padding: 2rem 1rem 2.25rem;
+        text-align: center;
+        color: var(--text-3);
+    }
+
+    .archive-empty-icon {
+        font-size: 2rem;
+        margin-bottom: .5rem;
+        opacity: .7;
+    }
+
+    @@media (max-width: 700px) {
+        .archive-item {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .archive-action {
+            width: 100%;
+        }
+
+        .btn-archive {
+            width: 100%;
+        }
+    }
+</style>

@@ -1,0 +1,48 @@
+@model CommonBrewPOS.Models.InventoryItem
+@{
+    ViewData["Title"] = "Add Inventory Item";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Add Stock Item</h1>
+        <p class="page-subtitle">Add a new ingredient to inventory</p>
+    </div>
+    <a asp-action="Index" class="btn-outline">← Back</a>
+</div>
+
+<div class="form-card form-card--narrow">
+    <form asp-action="Create" method="post">
+        @Html.AntiForgeryToken()
+        <div class="form-group">
+            <label class="form-label">Item Name *</label>
+            <input type="text" name="Name" class="form-input" required placeholder="e.g. Espresso Beans" />
+        </div>
+        <div class="form-group">
+            <label class="form-label">Unit *</label>
+            <select name="Unit" class="form-select" required>
+                <option value="g">g (grams)</option>
+                <option value="ml">ml (milliliters)</option>
+                <option value="pcs">pcs (pieces)</option>
+                <option value="kg">kg (kilograms)</option>
+                <option value="L">L (liters)</option>
+            </select>
+        </div>
+        <div class="form-grid-2">
+            <div class="form-group">
+                <label class="form-label">Current Stock *</label>
+                <input type="number" name="CurrentStock" class="form-input" required step="0.01" min="0" placeholder="0" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Critical Level *</label>
+                <input type="number" name="CriticalLevel" class="form-input" required step="0.01" min="0" placeholder="0" />
+                <small class="form-hint">Alert triggers below this amount</small>
+            </div>
+        </div>
+        <div class="form-actions">
+            <a asp-action="Index" class="btn-outline">Cancel</a>
+            <button type="submit" class="btn-primary">Add Item</button>
+        </div>
+    </form>
+</div>

@@ -1,0 +1,169 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] – CommonBrew POS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="~/css/app.css" rel="stylesheet" />
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body class="app-body">
+
+    <!-- ── Sidebar ────────────────────────────────────────────── -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <span class="logo-icon">☕</span>
+            <div class="logo-text">
+                <span class="logo-brand">CommonBrew</span>
+                <span class="logo-role">@User.FindFirst("http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value?.ToUpper()</span>
+            </div>
+        </div>
+
+        <div class="sidebar-menu">
+            <p class="menu-label">MENU</p>
+            <ul class="nav-list">
+                @if (User.IsInRole("Administrator"))
+                {
+                    <li>
+                        <a asp-controller="Dashboard" asp-action="Index"
+                               class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Dashboard" ? "active" : "")">
+                            <i class="icon">⊞</i> Dashboard
+                        </a>
+                    </li>
+                }
+                <li>
+                    <a asp-controller="POS" asp-action="Index"
+                           class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "POS" ? "active" : "")">
+                        <i class="icon">🛒</i> Point of Sale
+                    </a>
+                </li>
+                @if (User.IsInRole("Administrator"))
+                {
+                    <li>
+                        <a asp-controller="Inventory" asp-action="Index"
+                               class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Inventory" ? "active" : "")">
+                            <i class="icon">📦</i> Inventory
+                        </a>
+                    </li>
+                    <li>
+                        <a asp-controller="Products" asp-action="Index"
+                               class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Products" ? "active" : "")">
+                            <i class="icon">☕</i> Products
+                        </a>
+                    </li>
+                    <li>
+                        <a asp-controller="Reports" asp-action="Index"
+                               class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Reports" ? "active" : "")">
+                            <i class="icon">📊</i> Reports
+                        </a>
+                    </li>
+                    <li>
+                        <a asp-controller="Archive" asp-action="Index"
+                               class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Archive" ? "active" : "")">
+                            <i class="icon">🗂</i> Archive
+                        </a>
+                    </li>
+                    <li>
+                        <a asp-controller="Settings" asp-action="Index"
+                               class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Settings" ? "active" : "")">
+                            <i class="icon">⚙</i> Settings
+                        </a>
+                    </li>
+                }
+            </ul>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar">@User.Identity?.Name?.Substring(0, 1).ToUpper()</div>
+                <div>
+                    <p class="user-name">@User.Identity?.Name</p>
+                    <p class="user-role">@User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</p>
+                </div>
+            </div>
+            <form asp-controller="Auth" asp-action="Logout" method="post" style="margin:0">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="signout-btn">
+                    <i>↪</i> Sign Out
+                </button>
+            </form>
+        </div>
+    </nav>
+
+    <!-- ── Main Content ───────────────────────────────────────── -->
+    <main class="main-content">
+        <header class="top-bar">
+            <div class="search-wrap">
+                <span class="search-icon">🔍</span>
+                <input type="text" class="search-input" placeholder="Search transactions, products..."
+                       id="globalSearch" />
+            </div>
+            <div class="top-bar-actions">
+                <button class="notif-btn" id="notifBtn" title="Notifications">
+                    🔔
+                    @if (ViewBag.LowStockCount > 0)
+                    {
+                        <span class="notif-badge">@ViewBag.LowStockCount</span>
+                    }
+                </button>
+                @if (User.IsInRole("Administrator"))
+                {
+                    <button class="ai-btn" id="aiToggle">
+                        <h3><i class="fas fa-robot"></i> CommonBot</h3>
+                    </button>
+                }
+            </div>
+        </header>
+
+        <div class="page-content">
+            @if (TempData["Success"] != null)
+            {
+                <div class="alert-success">✓ @TempData["Success"]</div>
+            }
+            @if (TempData["Error"] != null)
+            {
+                <div class="alert-error">✕ @TempData["Error"]</div>
+            }
+            @RenderBody()
+        </div>
+    </main>
+
+    <!-- ── AI Chatbot Panel ───────────────────────────────────── -->
+    @if (User.IsInRole("Administrator"))
+    {
+        <aside class="ai-panel" id="aiPanel">
+            <div class="ai-header">
+                <div>
+                    <h3><i class="fas fa-robot"></i> CommonBot</h3>
+                    <p class="ai-subtitle">Ask anything about your business</p>
+                </div>
+                <button class="ai-close" id="aiClose">✕</button>
+            </div>
+            <div class="ai-messages" id="aiMessages">
+                <div class="ai-msg bot">
+                    <div class="msg-bubble">
+                        Hi! I'm your AI analytics assistant. Ask me about sales, inventory, top products, revenue trends, and more! 🚀
+                    </div>
+                </div>
+            </div>
+            <div class="ai-suggestions">
+                <button class="suggestion-chip" onclick="sendAiQuestion('What is today\'s total revenue?')">Today's revenue</button>
+                <button class="suggestion-chip" onclick="sendAiQuestion('What are the top selling products?')">Top products</button>
+                <button class="suggestion-chip" onclick="sendAiQuestion('Which items are low in stock?')">Low stock</button>
+                <button class="suggestion-chip" onclick="sendAiQuestion('Show me this week\'s sales trend')">Weekly trend</button>
+            </div>
+            <div class="ai-input-wrap">
+                <input type="text" class="ai-input" id="aiInput" placeholder="Ask a question..." />
+                <button class="ai-send" id="aiSend">Send</button>
+            </div>
+        </aside>
+        <div class="ai-overlay" id="aiOverlay"></div>
+    }
+
+    <script src="~/js/app.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

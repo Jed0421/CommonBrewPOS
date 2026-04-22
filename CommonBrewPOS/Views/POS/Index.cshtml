@@ -1,0 +1,453 @@
+@model List<CommonBrewPOS.Models.Product>
+@{
+    ViewData["Title"] = "Point of Sale";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var categories = ViewBag.Categories as List<CommonBrewPOS.Models.Category> ?? new();
+}
+
+<div class="pos-layout">
+    <!-- ── Products Panel ─────────────────────────────── -->
+    <div class="pos-products">
+        <div class="pos-search-bar">
+            <span class="search-icon-sm">🔍</span>
+            <input type="text" id="posSearch" class="pos-search-input" placeholder="Search menu..." />
+        </div>
+
+        <div class="cat-pills">
+            <button class="cat-pill active" data-cat="">All</button>
+            @foreach (var cat in categories)
+            {
+                <button class="cat-pill" data-cat="@cat.Id">@cat.Name</button>
+            }
+        </div>
+
+        <div class="product-grid" id="productGrid">
+            @foreach (var product in Model)
+            {
+                <div class="product-card"
+                     data-id="@product.Id"
+                     data-name="@product.Name"
+                     data-price="@product.Price.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                     data-cat="@product.CategoryId"
+                     data-product-type="@product.ProductType"
+                     data-upsize-price="@(product.UpsizePrice?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")">
+                    <div class="product-img-wrap">
+                        @if (!string.IsNullOrEmpty(product.ImageUrl))
+                        {
+                            <img src="@product.ImageUrl" alt="@product.Name" class="product-img" />
+                        }
+                        else
+                        {
+                            <div class="product-img-placeholder">☕</div>
+                        }
+                    </div>
+                    <div class="product-info">
+                        <p class="product-name">@product.Name</p>
+                        <p class="product-price">₱@product.Price.ToString("N2")</p>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- ── Order Panel ────────────────────────────────── -->
+    <div class="pos-order">
+        <div class="order-header">
+            <div class="order-title-row">
+                <span>🛒</span>
+                <h3 class="order-title">Current Order</h3>
+                <span class="order-count" id="orderCount">0 items</span>
+            </div>
+        </div>
+
+        <div class="order-items" id="orderItems">
+            <div class="order-empty" id="orderEmpty">
+                <span class="order-empty-icon">☕</span>
+                <p>No items in order</p>
+            </div>
+        </div>
+
+        <div class="order-footer">
+            <div class="order-summary">
+                <div class="summary-row">
+                    <span>Subtotal</span>
+                    <span id="subtotalDisplay">₱0.00</span>
+                </div>
+                <div class="summary-row total">
+                    <span>Total</span>
+                    <span id="totalDisplay">₱0.00</span>
+                </div>
+            </div>
+
+            <div class="payment-methods">
+                <button class="pay-btn active" data-method="Cash" onclick="setPayment(this,'Cash')">Cash</button>
+                <button class="pay-btn" data-method="GCash" onclick="setPayment(this,'GCash')">GCash</button>
+                <button class="pay-btn" data-method="Maya" onclick="setPayment(this,'Maya')">Maya</button>
+            </div>
+
+            <div id="cashInputWrap" class="cash-input-wrap">
+                <span class="cash-icon">₱</span>
+                <input type="number" id="cashInput" class="cash-input"
+                       placeholder="Cash Amount" step="0.01" min="0"
+                       oninput="calcChange()" />
+            </div>
+
+            <div id="changeDisplay" class="change-display" style="display:none">
+                Change: <strong id="changeAmt">₱0.00</strong>
+            </div>
+
+            <button class="pay-action-btn" id="payBtn" onclick="processPayment()" disabled>
+                🖨 Pay & Print Receipt
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="receiptModal" style="display:none">
+    <div class="receipt-modal">
+        <div class="receipt-header">
+            <h2>☕ CommonBrew Taytay</h2>
+            <p>Official Receipt</p>
+        </div>
+        <div class="receipt-body" id="receiptBody"></div>
+        <div class="receipt-actions">
+            <button class="btn-outline" onclick="window.print()">🖨 Print</button>
+            <button class="btn-primary" onclick="closeReceipt()">New Order</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let order = [];
+        let selectedPaymentMethod = "Cash";
+
+        const ADDON_PRICE = 10;
+        const AVAILABLE_ADDONS = ["Pearl", "Cream Cheese", "Nata", "Coffee Jelly"];
+
+        const posSearch = document.getElementById("posSearch");
+        const productGrid = document.getElementById("productGrid");
+        const catButtons = document.querySelectorAll(".cat-pill");
+
+        const orderItems = document.getElementById("orderItems");
+        const orderCount = document.getElementById("orderCount");
+        const subtotalDisplay = document.getElementById("subtotalDisplay");
+        const totalDisplay = document.getElementById("totalDisplay");
+        const cashInput = document.getElementById("cashInput");
+        const cashInputWrap = document.getElementById("cashInputWrap");
+        const changeDisplay = document.getElementById("changeDisplay");
+        const changeAmt = document.getElementById("changeAmt");
+        const payBtn = document.getElementById("payBtn");
+
+        function peso(value) {
+            return "₱" + Number(value).toLocaleString("en-PH", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function getItemUnitPrice(item) {
+            const basePrice = item.isUpsize && item.upsizePrice != null
+                ? Number(item.upsizePrice)
+                : Number(item.originalPrice);
+
+            const addonsTotal = (item.addons?.length || 0) * ADDON_PRICE;
+            return basePrice + addonsTotal;
+        }
+
+        function addToOrder(id, name, price, productType, upsizePrice) {
+            price = Number(price);
+            upsizePrice = upsizePrice === null || upsizePrice === undefined || upsizePrice === "" ? null : Number(upsizePrice);
+
+            order.push({
+                id: id,
+                name: name,
+                originalPrice: price,
+                upsizePrice: upsizePrice,
+                productType: productType,
+                isUpsize: false,
+                addons: [],
+                qty: 1
+            });
+
+            renderOrder();
+        }
+
+        function changeQty(index, delta) {
+            const item = order[index];
+            if (!item) return;
+
+            item.qty += delta;
+
+            if (item.qty <= 0) {
+                order.splice(index, 1);
+            }
+
+            renderOrder();
+        }
+
+        function toggleUpsize(index) {
+            const item = order[index];
+            if (!item) return;
+            if (item.productType !== "Drink") return;
+            if (item.upsizePrice == null) return;
+
+            item.isUpsize = !item.isUpsize;
+            renderOrder();
+        }
+
+        function toggleAddon(index, addonName) {
+            const item = order[index];
+            if (!item) return;
+
+            if (!item.addons) item.addons = [];
+
+            if (item.addons.includes(addonName)) {
+                item.addons = item.addons.filter(x => x !== addonName);
+            } else {
+                item.addons.push(addonName);
+            }
+
+            renderOrder();
+        }
+
+        function renderOrder() {
+            if (order.length === 0) {
+                orderItems.innerHTML = `
+                    <div class="order-empty" id="orderEmpty">
+                        <span class="order-empty-icon">☕</span>
+                        <p>No items in order</p>
+                    </div>
+                `;
+            } else {
+                orderItems.innerHTML = order.map((item, index) => {
+                    const unitPrice = getItemUnitPrice(item);
+                    const subtotal = unitPrice * item.qty;
+                    const canUpsize = item.productType === "Drink" && item.upsizePrice != null;
+
+                    return `
+                        <div class="order-item order-item-stack">
+                            <div class="order-item-main">
+                                <div class="order-item-info">
+                                    <div class="order-item-name">
+                                        ${item.name}
+                                        ${item.isUpsize ? `<span class="order-badge">Upsize</span>` : ``}
+                                    </div>
+                                    <div class="order-item-price">${peso(unitPrice)}</div>
+                                </div>
+
+                                <div class="order-item-qty">
+                                    <button type="button" class="qty-btn" onclick="changeQty(${index}, -1)">−</button>
+                                    <span class="qty-num">${item.qty}</span>
+                                    <button type="button" class="qty-btn" onclick="changeQty(${index}, 1)">+</button>
+                                </div>
+
+                                <div class="order-item-sub">${peso(subtotal)}</div>
+                            </div>
+
+                            <div class="order-item-controls">
+                                ${canUpsize ? `
+                                    <button type="button"
+                                            class="upsize-btn ${item.isUpsize ? 'active' : ''}"
+                                            onclick="toggleUpsize(${index})">
+                                        ${item.isUpsize ? '✓ Upsized' : 'Upsize'}
+                                    </button>
+                                ` : ''}
+
+                                <div class="addon-wrap">
+                                    ${AVAILABLE_ADDONS.map(addon => `
+                                        <button type="button"
+                                                class="addon-btn ${item.addons.includes(addon) ? 'active' : ''}"
+                                                onclick="toggleAddon(${index}, '${addon.replace("'", "\\'")}')">
+                                            ${addon} +₱10
+                                        </button>
+                                    `).join("")}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join("");
+            }
+
+            const totalQty = order.reduce((sum, item) => sum + item.qty, 0);
+            const subtotal = order.reduce((sum, item) => sum + (getItemUnitPrice(item) * item.qty), 0);
+
+            orderCount.textContent = `${totalQty} item${totalQty !== 1 ? "s" : ""}`;
+            subtotalDisplay.textContent = peso(subtotal);
+            totalDisplay.textContent = peso(subtotal);
+
+            if (selectedPaymentMethod === "Cash") {
+                cashInputWrap.style.display = "flex";
+                changeDisplay.style.display = "block";
+                calcChange();
+            } else {
+                cashInputWrap.style.display = "none";
+                changeDisplay.style.display = "none";
+                changeAmt.textContent = "₱0.00";
+            }
+
+            payBtn.disabled = order.length === 0;
+        }
+
+        function calcChange() {
+            const subtotal = order.reduce((sum, item) => sum + (getItemUnitPrice(item) * item.qty), 0);
+            const cash = Number(cashInput.value || 0);
+            const change = Math.max(0, cash - subtotal);
+            changeAmt.textContent = peso(change);
+        }
+
+        function setPayment(button, method) {
+            document.querySelectorAll(".pay-btn").forEach(btn => btn.classList.remove("active"));
+            button.classList.add("active");
+            selectedPaymentMethod = method;
+            renderOrder();
+        }
+
+        async function processPayment() {
+            if (order.length === 0) {
+                alert("Please add at least one product.");
+                return;
+            }
+
+            const total = order.reduce((sum, item) => sum + (getItemUnitPrice(item) * item.qty), 0);
+
+            if (selectedPaymentMethod === "Cash") {
+                const cash = Number(cashInput.value || 0);
+                if (cash < total) {
+                    alert("Insufficient cash amount.");
+                    return;
+                }
+            }
+
+            const payload = {
+                paymentMethod: selectedPaymentMethod,
+                cashTendered: selectedPaymentMethod === "Cash" ? Number(cashInput.value || 0) : null,
+                items: order.map(item => ({
+                    productId: item.id,
+                    productName: item.name + (item.isUpsize ? " (Upsize)" : ""),
+                    unitPrice: getItemUnitPrice(item),
+                    quantity: item.qty,
+                    isUpsize: item.isUpsize,
+                    addons: item.addons
+                }))
+            };
+
+            try {
+                const res = await fetch("/POS/ProcessTransaction", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+
+                if (!data.success) {
+                    alert(data.message || "Transaction failed.");
+                    return;
+                }
+
+                showReceipt(data);
+                order = [];
+                cashInput.value = "";
+                renderOrder();
+            } catch (err) {
+                console.error(err);
+                alert("Something went wrong while processing the transaction.");
+            }
+        }
+
+        function showReceipt(data) {
+            const receiptModal = document.getElementById("receiptModal");
+            const receiptBody = document.getElementById("receiptBody");
+
+            const total = data.totalAmount ?? 0;
+            const change = data.change ?? 0;
+
+            receiptBody.innerHTML = `
+                <p><strong>Reference:</strong> ${data.transactionRef ?? "-"}</p>
+                <p><strong>Payment Method:</strong> ${selectedPaymentMethod}</p>
+                <hr />
+                ${order.map(item => `
+                    <div class="receipt-line">
+                        <span>
+                            ${item.name}${item.isUpsize ? " (Upsize)" : ""}${item.addons.length ? " + " + item.addons.join(", ") : ""} x${item.qty}
+                        </span>
+                        <span>${peso(getItemUnitPrice(item) * item.qty)}</span>
+                    </div>
+                `).join("")}
+                <hr />
+                <div class="receipt-line total">
+                    <span>Total</span>
+                    <span>${peso(total)}</span>
+                </div>
+                ${selectedPaymentMethod === "Cash" ? `
+                    <div class="receipt-line">
+                        <span>Cash</span>
+                        <span>${peso(Number(cashInput.value || 0))}</span>
+                    </div>
+                    <div class="receipt-line">
+                        <span>Change</span>
+                        <span>${peso(change)}</span>
+                    </div>
+                ` : ""}
+            `;
+
+            receiptModal.style.display = "flex";
+        }
+
+        function closeReceipt() {
+            document.getElementById("receiptModal").style.display = "none";
+        }
+
+        function applyFilters() {
+            const searchValue = (posSearch?.value || "").trim().toLowerCase();
+            const activeCat = document.querySelector(".cat-pill.active")?.dataset.cat ?? "";
+
+            const cards = productGrid.querySelectorAll(".product-card");
+
+            cards.forEach(card => {
+                const name = (card.dataset.name || "").toLowerCase();
+                const cat = card.dataset.cat || "";
+
+                const matchSearch = name.includes(searchValue);
+                const matchCat = activeCat === "" || cat === activeCat;
+
+                card.style.display = (matchSearch && matchCat) ? "" : "none";
+            });
+        }
+
+        if (posSearch) {
+            posSearch.addEventListener("input", applyFilters);
+        }
+
+        catButtons.forEach(btn => {
+            btn.addEventListener("click", function () {
+                catButtons.forEach(x => x.classList.remove("active"));
+                this.classList.add("active");
+                applyFilters();
+            });
+        });
+
+        document.querySelectorAll(".product-card").forEach(card => {
+            card.addEventListener("click", function () {
+                addToOrder(
+                    this.dataset.id,
+                    this.dataset.name,
+                    this.dataset.price,
+                    this.dataset.productType,
+                    this.dataset.upsizePrice
+                );
+            });
+        });
+
+        renderOrder();
+
+        window.changeQty = changeQty;
+        window.setPayment = setPayment;
+        window.calcChange = calcChange;
+        window.processPayment = processPayment;
+        window.closeReceipt = closeReceipt;
+        window.toggleUpsize = toggleUpsize;
+        window.toggleAddon = toggleAddon;
+    </script>
+}

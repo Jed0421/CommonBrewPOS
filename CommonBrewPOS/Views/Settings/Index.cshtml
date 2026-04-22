@@ -1,0 +1,143 @@
+@model List<CommonBrewPOS.Models.User>
+@{
+    ViewData["Title"] = "Settings";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Settings</h1>
+        <p class="page-subtitle">Manage user accounts and system settings</p>
+    </div>
+    <button class="btn-primary" onclick="showCreateUser()">+ Add User</button>
+</div>
+
+<div class="table-card">
+    <h3 class="section-title">User Accounts</h3>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Full Name</th>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in Model)
+            {
+                <tr>
+                    <td>
+                        <div class="user-cell">
+                            <div class="user-avatar-sm">@user.FullName.Substring(0,1).ToUpper()</div>
+                            @user.FullName
+                        </div>
+                    </td>
+                    <td><code>@user.Username</code></td>
+                    <td>
+                        <span class="role-badge @(user.Role == "Administrator" ? "admin" : "cashier")">
+                            @user.Role
+                        </span>
+                    </td>
+                    <td>
+                        <span class="status-badge @(user.IsActive ? "badge-green" : "badge-red")">
+                            @(user.IsActive ? "Active" : "Inactive")
+                        </span>
+                    </td>
+                    <td>@user.CreatedAt.ToString("MMM dd, yyyy")</td>
+                    <td>
+                        <div class="action-row">
+                            <button class="link-blue"
+                                    onclick="showChangePwd('@user.Id', '@user.FullName')">
+                                Change Password
+                            </button>
+                            @if (user.IsActive)
+                            {
+                                <form asp-action="DeleteUser" method="post" style="display:inline"
+                                      onsubmit="return confirm('Deactivate @user.FullName?')">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@user.Id" />
+                                    <button type="submit" class="link-red">Deactivate</button>
+                                </form>
+                            }
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<!-- Create User Modal -->
+<div class="modal-overlay" id="createUserModal" style="display:none">
+    <div class="modal-card">
+        <h3 class="modal-title">Create User Account</h3>
+        <form asp-action="CreateUser" method="post">
+            @Html.AntiForgeryToken()
+            <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input type="text" name="fullName" class="form-input" required placeholder="e.g. Juan dela Cruz" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Username</label>
+                <input type="text" name="username" class="form-input" required placeholder="e.g. juan_cashier" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-input" required placeholder="Minimum 6 characters" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Role</label>
+                <select name="role" class="form-select">
+                    <option value="Cashier">Cashier</option>
+                    <option value="Administrator">Administrator</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-outline" onclick="closeCreateUser()">Cancel</button>
+                <button type="submit" class="btn-primary">Create User</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Change Password Modal -->
+<div class="modal-overlay" id="changePwdModal" style="display:none">
+    <div class="modal-card">
+        <h3 class="modal-title">Change Password</h3>
+        <p id="changePwdLabel" class="modal-subtitle"></p>
+        <form asp-action="ChangePassword" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" id="changePwdUserId" name="id" />
+            <div class="form-group">
+                <label class="form-label">New Password</label>
+                <input type="password" name="newPassword" class="form-input" required />
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-outline" onclick="closeChangePwd()">Cancel</button>
+                <button type="submit" class="btn-primary">Update Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    function showCreateUser() {
+        document.getElementById('createUserModal').style.display = 'flex';
+    }
+    function closeCreateUser() {
+        document.getElementById('createUserModal').style.display = 'none';
+    }
+    function showChangePwd(id, name) {
+        document.getElementById('changePwdUserId').value = id;
+        document.getElementById('changePwdLabel').textContent = name;
+        document.getElementById('changePwdModal').style.display = 'flex';
+    }
+    function closeChangePwd() {
+        document.getElementById('changePwdModal').style.display = 'none';
+    }
+</script>
+}

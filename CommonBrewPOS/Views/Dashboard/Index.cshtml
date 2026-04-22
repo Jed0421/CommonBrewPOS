@@ -1,0 +1,212 @@
+@model CommonBrewPOS.Models.DailyAnalytics
+@{
+    ViewData["Title"] = "Dashboard";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Dashboard Overview</h1>
+        <p class="page-subtitle">Welcome to your CommonBrew command center.</p>
+    </div>
+    <div class="period-select-wrap">
+        <select class="period-select" id="periodSelect" onchange="changePeriod(this.value)">
+            @if (ViewBag.Period == "Today")
+            {
+                <option value="Today" selected>Today</option>
+            }
+            else
+            {
+                <option value="Today">Today</option>
+            }
+
+            @if (ViewBag.Period == "Weekly")
+            {
+                <option value="Weekly" selected>This Week</option>
+            }
+            else
+            {
+                <option value="Weekly">This Week</option>
+            }
+
+            @if (ViewBag.Period == "Monthly")
+            {
+                <option value="Monthly" selected>This Month</option>
+            }
+            else
+            {
+                <option value="Monthly">This Month</option>
+            }
+
+            @if (ViewBag.Period == "Yearly")
+            {
+                <option value="Yearly" selected>This Year</option>
+            }
+            else
+            {
+                <option value="Yearly">This Year</option>
+            }
+        </select>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="kpi-grid">
+    <div class="kpi-card green">
+        <div class="kpi-icon-wrap green">💰</div>
+        <div class="kpi-info">
+            <p class="kpi-label">Today's Revenue</p>
+            <p class="kpi-value">₱@Model.TodayRevenue.ToString("N2")</p>
+        </div>
+        <span class="kpi-badge green">+12.5%</span>
+    </div>
+    <div class="kpi-card blue">
+        <div class="kpi-icon-wrap blue">🛒</div>
+        <div class="kpi-info">
+            <p class="kpi-label">Transactions</p>
+            <p class="kpi-value">@Model.TodayTransactions</p>
+        </div>
+        <span class="kpi-badge blue">+5.2%</span>
+    </div>
+    <div class="kpi-card orange">
+        <div class="kpi-icon-wrap orange">⭐</div>
+        <div class="kpi-info">
+            <p class="kpi-label">Top Selling Product</p>
+            <p class="kpi-value kpi-value--sm">@Model.TopSellingProduct</p>
+        </div>
+    </div>
+    <div class="kpi-card @(Model.LowStockCount > 0 ? "red" : "green")">
+        <div class="kpi-icon-wrap @(Model.LowStockCount > 0 ? "red" : "green")">📦</div>
+        <div class="kpi-info">
+            <p class="kpi-label">Low Stock Items</p>
+            <p class="kpi-value">@Model.LowStockCount</p>
+        </div>
+        @if (Model.LowStockCount > 0)
+        {
+            <span class="kpi-badge red">Action Required</span>
+        }
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="dashboard-grid">
+    <!-- Weekly Sales Chart -->
+    <div class="chart-card">
+        <h3 class="card-title">Weekly Sales Performance</h3>
+        <div class="chart-wrap">
+            <canvas id="salesChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Low Stock -->
+    <div class="stock-card">
+        <div class="card-title-row">
+            <h3 class="card-title">Low Stock Alerts</h3>
+            @if (Model.LowStockItems.Any())
+            {
+                <span class="badge-red">@Model.LowStockItems.Count items</span>
+            }
+        </div>
+        @if (Model.LowStockItems.Any())
+        {
+            <ul class="stock-list">
+                @foreach (var item in Model.LowStockItems)
+                {
+                    <li class="stock-item">
+                        <div>
+                            <p class="stock-name">@item.Name</p>
+                            <p class="stock-critical">Critical: @item.CriticalLevel @item.Unit</p>
+                        </div>
+                        <div class="stock-right">
+                            <span class="stock-qty red">@item.CurrentStock @item.Unit</span>
+                            <span class="stock-label">Left</span>
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+        else
+        {
+            <div class="empty-state">
+                <p>✅ All stock levels are good!</p>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Top Products -->
+@if (Model.TopProducts.Any())
+{
+    <div class="chart-card" style="margin-top:1.5rem">
+        <h3 class="card-title">Top Selling Products</h3>
+        <div class="top-products-table">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Product</th>
+                        <th>Units Sold</th>
+                        <th>Revenue</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int i = 0; i < Model.TopProducts.Count; i++)
+                    {
+                        <tr>
+                            <td><span class="rank-badge">@(i + 1)</span></td>
+                            <td>@Model.TopProducts[i].ProductName</td>
+                            <td>@Model.TopProducts[i].TotalSold</td>
+                            <td>₱@Model.TopProducts[i].TotalRevenue.ToString("N2")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const labels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.WeeklySales.Select(x => x.DayLabel)));
+        const data = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.WeeklySales.Select(x => x.Revenue)));
+
+        const ctx = document.getElementById('salesChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Revenue (₱)',
+                    data,
+                    backgroundColor: '#f97316',
+                    borderRadius: 6,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: v => '₱' + Number(v).toLocaleString(),
+                            color: '#6b7280'
+                        },
+                        grid: { color: '#f3f4f6' }
+                    },
+                    x: {
+                        ticks: { color: '#6b7280' },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+
+        function changePeriod(val) {
+            window.location = '/Dashboard/Index?period=' + val;
+        }
+    </script>
+}

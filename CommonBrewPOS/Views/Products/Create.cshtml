@@ -1,0 +1,204 @@
+@model CommonBrewPOS.Models.Product
+@{
+    ViewData["Title"] = "Add Product";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var categories = ViewBag.Categories as List<CommonBrewPOS.Models.Category> ?? new();
+    var inventoryItems = ViewBag.InventoryItems as List<CommonBrewPOS.Models.InventoryItem> ?? new();
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Add New Product</h1>
+        <p class="page-subtitle">Fill in the product details and recipe</p>
+    </div>
+    <a asp-action="Index" class="btn-outline">← Back to Products</a>
+</div>
+
+<div class="form-card">
+    <form asp-action="Create" method="post">
+        @Html.AntiForgeryToken()
+
+        <div class="form-grid-2">
+            <div class="form-group">
+                <label class="form-label">Product Name *</label>
+                <input type="text"
+                       name="Name"
+                       class="form-input"
+                       required
+                       placeholder="e.g. Iced Caramel Macchiato"
+                       value="@Model.Name" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Category *</label>
+                <select name="CategoryId" class="form-select" required>
+                    <option value="">Select category</option>
+                    @foreach (var cat in categories)
+                    {
+                        <option value="@cat.Id">@cat.Name</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="form-grid-2">
+            <div class="form-group">
+                <label class="form-label">Product Type *</label>
+                <select id="productType"
+                        name="ProductType"
+                        class="form-select"
+                        onchange="toggleUpsizeSection()">
+                    <option value="Drink" selected="@(Model.ProductType == "Drink" ? "selected" : null)">Drink</option>
+                    <option value="Food" selected="@(Model.ProductType == "Food" ? "selected" : null)">Food</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="upsizePriceWrap" style="display:none;">
+                <label class="form-label">Upsize Price (₱)</label>
+                <input type="number"
+                       name="UpsizePrice"
+                       class="form-input"
+                       step="0.01"
+                       min="0"
+                       placeholder="0.00"
+                       value="@Model.UpsizePrice" />
+            </div>
+        </div>
+
+        <div class="form-grid-2">
+            <div class="form-group">
+                <label class="form-label">Price (₱) *</label>
+                <input type="number"
+                       name="Price"
+                       class="form-input"
+                       required
+                       step="0.01"
+                       min="0"
+                       placeholder="0.00"
+                       value="@Model.Price" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Image URL</label>
+                <input type="url"
+                       name="ImageUrl"
+                       class="form-input"
+                       placeholder="https://..."
+                       value="@Model.ImageUrl" />
+            </div>
+        </div>
+
+        <!-- Regular Recipe -->
+        <div class="recipe-builder">
+            <div class="recipe-builder-header">
+                <h4 class="section-title">📋 Regular Recipe (Ingredients)</h4>
+                <button type="button"
+                        class="btn-outline btn-sm"
+                        onclick="addIngredient()">
+                    + Add Ingredient
+                </button>
+            </div>
+            <div id="ingredientList"></div>
+        </div>
+
+        <!-- Upsize Recipe -->
+        <div id="upsizeSection" class="recipe-builder" style="display:none; margin-top:1.25rem;">
+            <div class="recipe-builder-header">
+                <h4 class="section-title">📈 Upsize Recipe</h4>
+                <button type="button"
+                        class="btn-outline btn-sm"
+                        onclick="addUpsizeIngredient()">
+                    + Add Upsize Ingredient
+                </button>
+            </div>
+            <div id="upsizeIngredientList"></div>
+        </div>
+
+        <div class="form-actions">
+            <a asp-action="Index" class="btn-outline">Cancel</a>
+            <button type="submit" class="btn-primary">Save Product</button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <script>
+        const inventoryItems = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                    inventoryItems.Select(i => new
+                    {
+                            id = i.Id,
+                            name = i.Name,
+                            unit = i.Unit
+                    })));
+
+        function addIngredient(selectedId = '', qty = '') {
+            const container = document.getElementById('ingredientList');
+            const div = document.createElement('div');
+            div.className = 'ingredient-row';
+
+            div.innerHTML = `
+                <select name="ingredientIds" class="form-select" required>
+                    <option value="">Select ingredient</option>
+                    ${inventoryItems.map(i =>
+                        `<option value="${i.id}" ${i.id === selectedId ? 'selected' : ''}>${i.name} (${i.unit})</option>`
+                    ).join('')}
+                </select>
+
+                <input type="number"
+                       name="ingredientQtys"
+                       class="form-input ingredient-qty"
+                       placeholder="Qty"
+                       step="0.01"
+                       min="0"
+                       value="${qty}"
+                       required />
+
+                <button type="button"
+                        class="btn-delete-sm"
+                        onclick="this.parentElement.remove()">✕</button>
+            `;
+
+            container.appendChild(div);
+        }
+
+        function addUpsizeIngredient(selectedId = '', qty = '') {
+            const container = document.getElementById('upsizeIngredientList');
+            const div = document.createElement('div');
+            div.className = 'ingredient-row';
+
+            div.innerHTML = `
+                <select name="upsizeIngredientIds" class="form-select">
+                    <option value="">Select ingredient</option>
+                    ${inventoryItems.map(i =>
+                        `<option value="${i.id}" ${i.id === selectedId ? 'selected' : ''}>${i.name} (${i.unit})</option>`
+                    ).join('')}
+                </select>
+
+                <input type="number"
+                       name="upsizeIngredientQtys"
+                       class="form-input ingredient-qty"
+                       placeholder="Qty"
+                       step="0.01"
+                       min="0"
+                       value="${qty}" />
+
+                <button type="button"
+                        class="btn-delete-sm"
+                        onclick="this.parentElement.remove()">✕</button>
+            `;
+
+            container.appendChild(div);
+        }
+
+        function toggleUpsizeSection() {
+            const type = document.getElementById("productType").value;
+            const showUpsize = type === "Drink";
+
+            document.getElementById("upsizeSection").style.display = showUpsize ? "block" : "none";
+            document.getElementById("upsizePriceWrap").style.display = showUpsize ? "block" : "none";
+        }
+
+        addIngredient();
+        toggleUpsizeSection();
+    </script>
+}

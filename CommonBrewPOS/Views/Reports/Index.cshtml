@@ -1,0 +1,96 @@
+@model List<CommonBrewPOS.Models.Transaction>
+@{
+    ViewData["Title"] = "Reports";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Sales Reports</h1>
+        <p class="page-subtitle">View and export historical transaction data</p>
+    </div>
+    <button class="btn-primary" onclick="exportPDF()">⬇ Export PDF</button>
+</div>
+
+<!-- Filters -->
+<div class="filter-card">
+    <form method="get" class="filter-row">
+        <div class="filter-group">
+            <label class="form-label">From</label>
+            <input type="date" name="from" value="@ViewBag.From" class="form-input" />
+        </div>
+        <div class="filter-group">
+            <label class="form-label">To</label>
+            <input type="date" name="to" value="@ViewBag.To" class="form-input" />
+        </div>
+        <button type="submit" class="btn-primary" style="align-self:flex-end">Filter</button>
+    </form>
+</div>
+
+<div class="table-card" id="reportTable">
+    <div class="table-header-row">
+        <div class="search-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input" id="txnSearch"
+                   placeholder="Search by transaction ID or method..." />
+        </div>
+        <span class="record-count">Total Record: @Model.Count</span>
+    </div>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Date &amp; Time</th>
+                <th>Transaction ID</th>
+                <th>Items Sold</th>
+                <th>Payment Method</th>
+                <th>Total Amount</th>
+            </tr>
+        </thead>
+        <tbody id="txnBody">
+            @foreach (var txn in Model)
+            {
+                <tr class="txn-row" data-ref="@txn.TransactionRef.ToLower()" data-method="@txn.PaymentMethod.ToLower()">
+                    <td>@txn.CreatedAt.ToString("MMM dd, yyyy hh:mm tt")</td>
+                    <td><code class="txn-ref">@txn.TransactionRef</code></td>
+                    <td>
+                        <div class="items-list">
+                            @foreach (var item in txn.Items)
+                            {
+                                <span class="item-tag">@item.Quantity x @item.ProductName</span>
+                            }
+                        </div>
+                    </td>
+                    <td>
+                        <span class="payment-badge @txn.PaymentMethod.ToLower()">@txn.PaymentMethod</span>
+                    </td>
+                    <td class="amount-cell">₱@txn.TotalAmount.ToString("N2")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (!Model.Any())
+    {
+        <div class="empty-state">
+            <p>No transactions found for the selected period.</p>
+        </div>
+    }
+</div>
+
+@section Scripts {
+<script>
+    document.getElementById('txnSearch').addEventListener('input', function () {
+        const q = this.value.toLowerCase();
+        document.querySelectorAll('.txn-row').forEach(row => {
+            const ref = row.dataset.ref;
+            const method = row.dataset.method;
+            row.style.display = (ref.includes(q) || method.includes(q)) ? '' : 'none';
+        });
+    });
+
+    function exportPDF() {
+        window.print();
+    }
+</script>
+}

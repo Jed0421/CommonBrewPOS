@@ -1,0 +1,64 @@
+@model CommonBrewPOS.Models.InventoryItem
+@{
+    ViewData["Title"] = "Edit Inventory";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Edit Inventory Item</h1>
+        <p class="page-subtitle">Update stock details for @Model.Name</p>
+    </div>
+    <a asp-action="Index" class="btn-outline">← Back</a>
+</div>
+
+<div class="form-card form-card--narrow">
+    <form asp-action="Edit" method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="Id" value="@Model.Id" />
+        <div class="form-group">
+            <label class="form-label">Item Name *</label>
+            <input type="text" name="Name" class="form-input" required value="@Model.Name" />
+        </div>
+        <div class="form-group">
+            <label class="form-label">Unit *</label>
+            @{ 
+                var units = new[] {
+                    new { Value = "g", Text = "g (grams)" },
+                    new { Value = "ml", Text = "ml (milliliters)" },
+                    new { Value = "pcs", Text = "pcs (pieces)" },
+                    new { Value = "kg", Text = "kg (kilograms)" },
+                    new { Value = "L", Text = "L (liters)" }
+                };
+            }
+            <select name="Unit" class="form-select" required>
+            @foreach (var u in units)
+            {
+                if (u.Value == Model.Unit)
+                {
+                    <option value="@u.Value" selected>@u.Text</option>
+                }
+                else
+                {
+                    <option value="@u.Value">@u.Text</option>
+                }
+            }
+            </select>
+        </div>
+        <div class="form-grid-2">
+            <div class="form-group">
+                <label class="form-label">Current Stock</label>
+                <input type="number" name="CurrentStock" class="form-input" step="0.01" min="0" value="@Model.CurrentStock" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Critical Level</label>
+                <input type="number" name="CriticalLevel" class="form-input" step="0.01" min="0" value="@Model.CriticalLevel" />
+                <small class="form-hint">Alert triggers below this amount</small>
+            </div>
+        </div>
+        <div class="form-actions">
+            <a asp-action="Index" class="btn-outline">Cancel</a>
+            <button type="submit" class="btn-primary">Save Changes</button>
+        </div>
+    </form>
+</div>
