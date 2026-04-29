@@ -132,6 +132,9 @@ public class Transaction
     [JsonPropertyName("cashier_id")]
     public string? CashierId { get; set; }
 
+    [JsonPropertyName("cashier_name")]
+    public string? CashierName { get; set; }
+
     [JsonPropertyName("payment_method")]
     public string? PaymentMethod { get; set; }
 

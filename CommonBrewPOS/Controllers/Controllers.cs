@@ -520,12 +520,67 @@ public class SettingsController : Controller
 public class ChatbotApiController : ControllerBase
 {
     private readonly AiChatbotService _ai;
-    public ChatbotApiController(AiChatbotService ai) => _ai = ai;
+    private readonly ProductService _products;
+    private readonly InventoryService _inventory;
+    private readonly TransactionService _transactions;
+
+    public ChatbotApiController(
+        AiChatbotService ai,
+        ProductService products,
+        InventoryService inventory,
+        TransactionService transactions)
+    {
+        _ai = ai;
+        _products = products;
+        _inventory = inventory;
+        _transactions = transactions;
+    }
 
     [HttpPost("ask")]
     public async Task<IActionResult> Ask([FromBody] ChatRequest req)
     {
-        var reply = await _ai.AskAsync(req.Question);
+        var loggedInName = User.Identity?.Name ?? "User";
+
+        var products = await _products.GetAllAsync();
+        var inventory = await _inventory.GetAllAsync();
+        var transactions = await _transactions.GetRecentAsync(30);
+
+        var databaseContext = $@"
+Current logged-in user: {loggedInName}
+
+PRODUCTS:
+{string.Join("\n", products.Select(p => $"- {p.Name} | Price: ₱{p.Price} | Type: {p.ProductType} | Available: {p.IsAvailable}"))}
+
+INVENTORY:
+{string.Join("\n", inventory.Select(i => $"- {i.Name} | Stock: {i.CurrentStock} {i.Unit} | Critical Level: {i.CriticalLevel}"))}
+
+RECENT TRANSACTIONS:
+{string.Join("\n", transactions.Select(t => $"- {t.TransactionRef} | Method: {t.PaymentMethod} | Total: ₱{t.TotalAmount} | Status: {t.Status}"))}
+";
+
+        var fullQuestion = $@"
+You are CommonBot, the AI assistant of CommonBrew POS.
+
+Always call the user by their name: {loggedInName}.
+
+You can answer questions about the current database including:
+- products
+- inventory
+- transactions
+- sales
+- low stock
+- reports
+
+Use this current database information:
+
+{databaseContext}
+
+User question:
+{req.Question}
+";
+
+        var reply = await _ai.AskAsync(fullQuestion);
+
         return Ok(new { reply });
     }
 }
