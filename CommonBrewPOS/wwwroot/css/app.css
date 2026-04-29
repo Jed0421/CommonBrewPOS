@@ -145,10 +145,17 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; color: var
 .main-content { margin-left: 230px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
 
 .top-bar {
-  height: 60px; background: var(--surface); border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 1.5rem; position: sticky; top: 0; z-index: 50;
-  box-shadow: var(--shadow);
+    height: 60px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    box-shadow: var(--shadow);
 }
 .search-wrap { position: relative; display: flex; align-items: center; }
 .search-icon { position: absolute; left: .75rem; color: var(--text-3); pointer-events: none; }
@@ -159,11 +166,45 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; color: var
 }
 .search-input:focus { border-color: var(--brand); }
 
-.top-bar-actions { display: flex; align-items: center; gap: .75rem; }
+.top-bar-actions {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-left: auto;
+}
+.top-clock {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 180px;
+    height: 48px;
+    padding: 0 1.4rem;
+    background: #ffffff;
+    border: 2px solid #e5e7eb;
+    border-radius: 999px;
+    color: #111827;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 1.4rem !important;
+    font-weight: 900 !important;
+    letter-spacing: 2px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    white-space: nowrap;
+    z-index: 999;
+}
 .notif-btn {
-  position: relative; background: none; border: none; cursor: pointer;
-  font-size: 1.1rem; padding: .375rem; border-radius: 50%;
-  transition: background .15s;
+    position: relative;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: .375rem;
+    border-radius: 50%;
+    transition: background .15s;
+    margin-left: auto;
+    margin-right: 10rem;
 }
 .notif-btn:hover { background: var(--bg); }
 .notif-badge {

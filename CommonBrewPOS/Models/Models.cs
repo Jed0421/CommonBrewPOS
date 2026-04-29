@@ -124,23 +124,22 @@ public class ProductRecipe
 // ── Transaction ───────────────────────────────────────────────
 public class Transaction
 {
-    [JsonPropertyName("id")]
-    public string Id { get; set; } = string.Empty;
+    public string Id { get; set; } = "";
 
     [JsonPropertyName("transaction_ref")]
-    public string TransactionRef { get; set; } = string.Empty;
+    public string? TransactionRef { get; set; }
 
     [JsonPropertyName("cashier_id")]
     public string? CashierId { get; set; }
 
     [JsonPropertyName("payment_method")]
-    public string PaymentMethod { get; set; } = "Cash";
+    public string? PaymentMethod { get; set; }
 
     [JsonPropertyName("subtotal")]
-    public decimal Subtotal { get; set; }
+    public decimal? Subtotal { get; set; }
 
     [JsonPropertyName("total_amount")]
-    public decimal TotalAmount { get; set; }
+    public decimal? TotalAmount { get; set; }
 
     [JsonPropertyName("cash_tendered")]
     public decimal? CashTendered { get; set; }
@@ -149,15 +148,14 @@ public class Transaction
     public decimal? ChangeAmount { get; set; }
 
     [JsonPropertyName("status")]
-    public string Status { get; set; } = "completed";
+    public string? Status { get; set; }
 
     [JsonPropertyName("created_at")]
-    public DateTime CreatedAt { get; set; }
+    public DateTimeOffset? CreatedAt { get; set; }
 
-    // Navigation
     public List<TransactionItem> Items { get; set; } = new();
-    public string CashierName { get; set; } = string.Empty;
 }
+
 
 // ── Transaction Item ──────────────────────────────────────────
 public class TransactionItem
@@ -216,6 +214,9 @@ public class InventoryLog
 public class DailyAnalytics
 {
     public decimal TodayRevenue { get; set; }
+    public decimal RevenueGrowth { get; set; }
+
+    public decimal TransactionGrowth { get; set; }
     public int TodayTransactions { get; set; }
     public string TopSellingProduct { get; set; } = string.Empty;
     public int LowStockCount { get; set; }

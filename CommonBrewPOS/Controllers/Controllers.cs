@@ -20,7 +20,14 @@ public class AuthController : Controller
     [HttpGet]
     public IActionResult Login()
     {
-        if (User.Identity?.IsAuthenticated == true) return RedirectToAction("Index", "Dashboard");
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            if (User.IsInRole("Cashier"))
+                return RedirectToAction("Index", "POS");
+
+            return RedirectToAction("Index", "Dashboard");
+        }
+
         return View();
     }
 
@@ -385,20 +392,27 @@ public class ProductsController : Controller
 // ════════════════════════════════════════════════════════════
 // Reports Controller
 // ════════════════════════════════════════════════════════════
-[Authorize(Roles = "Administrator")]
+[Authorize(Roles = "Administrator,Cashier")]
 public class ReportsController : Controller
 {
     private readonly TransactionService _transactions;
 
-    public ReportsController(TransactionService transactions) => _transactions = transactions;
+    public ReportsController(TransactionService transactions)
+    {
+        _transactions = transactions;
+    }
 
     public async Task<IActionResult> Index(DateTime? from, DateTime? to)
     {
-        var start = from ?? DateTime.Today.AddDays(-30);
+        // Faster default: only today
+        var start = from ?? DateTime.Today;
         var end = to ?? DateTime.Today;
+
         var txns = await _transactions.GetByDateRangeAsync(start, end);
+
         ViewBag.From = start.ToString("yyyy-MM-dd");
         ViewBag.To = end.ToString("yyyy-MM-dd");
+
         return View(txns);
     }
 
@@ -407,7 +421,9 @@ public class ReportsController : Controller
     {
         var start = from ?? DateTime.Today;
         var end = to ?? DateTime.Today;
+
         var txns = await _transactions.GetByDateRangeAsync(start, end);
+
         return Json(txns);
     }
 }

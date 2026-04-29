@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] – CommonBrew POS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="icon" type="image/x-icon" href="~/LogoIcon.ico" />
+    <link rel="shortcut icon" href="~/LogoIcon.ico" asp-append-version="true" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="~/css/app.css" rel="stylesheet" />
@@ -41,6 +41,16 @@
                         <i class="icon">🛒</i> Point of Sale
                     </a>
                 </li>
+                @if (User.IsInRole("Administrator") || User.IsInRole("Cashier"))
+                    {
+                    <li>
+                        <a asp-controller="Reports" asp-action="Index"
+                               class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Reports" ? "active" : "")">
+                            <i class="icon">📊</i> Reports
+                        </a>
+                    </li>
+                    }
+
                 @if (User.IsInRole("Administrator"))
                 {
                     <li>
@@ -53,12 +63,6 @@
                         <a asp-controller="Products" asp-action="Index"
                                class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Products" ? "active" : "")">
                             <i class="icon">☕</i> Products
-                        </a>
-                    </li>
-                    <li>
-                        <a asp-controller="Reports" asp-action="Index"
-                               class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Reports" ? "active" : "")">
-                            <i class="icon">📊</i> Reports
                         </a>
                     </li>
                     <li>
@@ -97,14 +101,10 @@
     <!-- ── Main Content ───────────────────────────────────────── -->
     <main class="main-content">
         <header class="top-bar">
-            <div class="search-wrap">
-                <span class="search-icon">🔍</span>
-                <input type="text" class="search-input" placeholder="Search transactions, products..."
-                       id="globalSearch" />
-            </div>
+            <span id="topClock" class="top-clock">--:--:--</span>
             <div class="top-bar-actions">
                 <button class="notif-btn" id="notifBtn" title="Notifications">
-                    🔔
+                                                                                        🔔
                     @if (ViewBag.LowStockCount > 0)
                     {
                         <span class="notif-badge">@ViewBag.LowStockCount</span>
@@ -165,6 +165,26 @@
     }
 
     <script src="~/js/app.js"></script>
+    <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                function updateTopClock() {
+                    const clock = document.getElementById("topClock");
+                    if (!clock) return;
+
+                    const now = new Date();
+
+                    clock.textContent = now.toLocaleTimeString("en-PH", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                        hour12: true
+                    });
+                }
+
+                updateTopClock();
+                setInterval(updateTopClock, 1000);
+            });
+    </script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

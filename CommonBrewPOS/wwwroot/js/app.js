@@ -98,3 +98,19 @@ window.fetch = function(url, opts = {}) {
     }
     return origFetch(url, opts);
 };
+//Clock------------------------------------------------------------------------------------
+function updateTopClock() {
+    const clock = document.getElementById("topClock");
+    if (!clock) return;
+
+    const now = new Date();
+    clock.textContent = now.toLocaleTimeString("en-PH", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true
+    });
+}
+
+updateTopClock();
+setInterval(updateTopClock, 1000);

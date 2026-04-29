@@ -58,7 +58,10 @@
             <p class="kpi-label">Today's Revenue</p>
             <p class="kpi-value">₱@Model.TodayRevenue.ToString("N2")</p>
         </div>
-        <span class="kpi-badge green">+12.5%</span>
+        <span class="kpi-badge green">
+            @(Model.RevenueGrowth >= 0 ? "+" : "")
+            @Model.RevenueGrowth.ToString("0.0")%
+        </span>
     </div>
     <div class="kpi-card blue">
         <div class="kpi-icon-wrap blue">🛒</div>
@@ -66,7 +69,10 @@
             <p class="kpi-label">Transactions</p>
             <p class="kpi-value">@Model.TodayTransactions</p>
         </div>
-        <span class="kpi-badge blue">+5.2%</span>
+        <span class="kpi-badge blue">
+            @(Model.TransactionGrowth >= 0 ? "+" : "")
+            @Model.TransactionGrowth.ToString("0.0")%
+        </span>
     </div>
     <div class="kpi-card orange">
         <div class="kpi-icon-wrap orange">⭐</div>

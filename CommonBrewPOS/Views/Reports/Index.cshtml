@@ -12,7 +12,6 @@
     <button class="btn-primary" onclick="exportPDF()">⬇ Export PDF</button>
 </div>
 
-<!-- Filters -->
 <div class="filter-card">
     <form method="get" class="filter-row">
         <div class="filter-group">
@@ -47,24 +46,45 @@
                 <th>Total Amount</th>
             </tr>
         </thead>
+
         <tbody id="txnBody">
             @foreach (var txn in Model)
             {
-                <tr class="txn-row" data-ref="@txn.TransactionRef.ToLower()" data-method="@txn.PaymentMethod.ToLower()">
-                    <td>@txn.CreatedAt.ToString("MMM dd, yyyy hh:mm tt")</td>
-                    <td><code class="txn-ref">@txn.TransactionRef</code></td>
+                var transactionRef = txn.TransactionRef ?? "N/A";
+                var paymentMethod = txn.PaymentMethod ?? "N/A";
+
+                var createdDate = txn.CreatedAt.HasValue
+                    ? txn.CreatedAt.Value.LocalDateTime.ToString("MMM dd, yyyy hh:mm tt")
+                    : "No date";
+
+                <tr class="txn-row"
+                    data-ref="@transactionRef.ToLower()"
+                    data-method="@paymentMethod.ToLower()">
+
+                    <td>@createdDate</td>
+                    <td><code class="txn-ref">@transactionRef</code></td>
+
                     <td>
                         <div class="items-list">
-                            @foreach (var item in txn.Items)
+                            @if (txn.Items != null && txn.Items.Any())
                             {
-                                <span class="item-tag">@item.Quantity x @item.ProductName</span>
+                                foreach (var item in txn.Items)
+                                {
+                                    <span class="item-tag">@item.Quantity x @item.ProductName</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="item-tag">No items</span>
                             }
                         </div>
                     </td>
+
                     <td>
-                        <span class="payment-badge @txn.PaymentMethod.ToLower()">@txn.PaymentMethod</span>
+                        <span class="payment-badge @paymentMethod.ToLower()">@paymentMethod</span>
                     </td>
-                    <td class="amount-cell">₱@txn.TotalAmount.ToString("N2")</td>
+
+                    <td class="amount-cell">₱@((txn.TotalAmount ?? 0).ToString("N2"))</td>
                 </tr>
             }
         </tbody>
@@ -79,18 +99,24 @@
 </div>
 
 @section Scripts {
-<script>
-    document.getElementById('txnSearch').addEventListener('input', function () {
-        const q = this.value.toLowerCase();
-        document.querySelectorAll('.txn-row').forEach(row => {
-            const ref = row.dataset.ref;
-            const method = row.dataset.method;
-            row.style.display = (ref.includes(q) || method.includes(q)) ? '' : 'none';
-        });
-    });
+    <script>
+        const searchBox = document.getElementById('txnSearch');
 
-    function exportPDF() {
-        window.print();
-    }
-</script>
+        if (searchBox) {
+            searchBox.addEventListener('input', function () {
+                const q = this.value.toLowerCase();
+
+                document.querySelectorAll('.txn-row').forEach(row => {
+                    const ref = row.dataset.ref || "";
+                    const method = row.dataset.method || "";
+
+                    row.style.display = (ref.includes(q) || method.includes(q)) ? '' : 'none';
+                });
+            });
+        }
+
+        function exportPDF() {
+            window.print();
+        }
+    </script>
 }

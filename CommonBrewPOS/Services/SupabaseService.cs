@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 
 namespace CommonBrewPOS.Services;
 
@@ -66,7 +67,12 @@ public class SupabaseService
         if (!response.IsSuccessStatusCode)
             throw new Exception($"Supabase error {(int)response.StatusCode}: {body}");
 
-        var list = JsonSerializer.Deserialize<List<T>>(body, _json);
+        var options = new JsonSerializerOptions(_json)
+        {
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        };
+
+        var list = JsonSerializer.Deserialize<List<T>>(body, options);
         return list != null && list.Count > 0 ? list[0] : default;
     }
 
@@ -129,4 +135,15 @@ public class SupabaseService
 
         return 0;
     }
+}
+
+public class InventoryLog
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    // ... other props ...
+
+    [JsonPropertyName("created_at")]
+    public DateTime? CreatedAt { get; set; }
 }

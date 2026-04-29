@@ -3,7 +3,6 @@ using CommonBrewPOS.Models;
 namespace CommonBrewPOS.Services;
 
 // ── Product Service ───────────────────────────────────────────
-// ── Product Service ───────────────────────────────────────────
 public class ProductService
 {
     private readonly SupabaseService _db;
@@ -12,18 +11,11 @@ public class ProductService
 
     public async Task<List<Product>> GetAllAsync()
     {
-        var products = await _db.SelectAsync<Product>(
+        // Faster: do not load recipes for every product here
+        return await _db.SelectAsync<Product>(
             "products",
             "select=*,categories(name)&is_available=eq.true&order=name.asc"
         );
-
-        foreach (var p in products)
-        {
-            p.Recipes = await GetRecipesAsync(p.Id);
-            p.UpsizeRecipes = await GetUpsizeRecipesAsync(p.Id);
-        }
-
-        return products;
     }
 
     public async Task<List<Product>> GetArchivedAsync()
@@ -169,29 +161,41 @@ public class ProductService
 public class InventoryService
 {
     private readonly SupabaseService _db;
+
     public InventoryService(SupabaseService db) => _db = db;
 
     public async Task<List<InventoryItem>> GetAllAsync()
-        => await _db.SelectAsync<InventoryItem>("inventory_items",
-            "select=*&order=name.asc");
+        => await _db.SelectAsync<InventoryItem>(
+            "inventory_items",
+            "select=*&order=name.asc"
+        );
 
-public async Task<List<InventoryItem>> GetLowStockAsync()
-{
-    return await _db.SelectAsync<InventoryItem>(
-        "v_low_stock",
-        "select=id,name,unit,current_stock,critical_level"
-    );
-}
+    public async Task<List<InventoryItem>> GetLowStockAsync()
+    {
+        return await _db.SelectAsync<InventoryItem>(
+            "v_low_stock",
+            "select=id,name,unit,current_stock,critical_level"
+        );
+    }
 
     public async Task<InventoryItem?> GetByIdAsync(string id)
-        => await _db.SelectSingleAsync<InventoryItem>("inventory_items", $"id=eq.{id}&select=*");
+        => await _db.SelectSingleAsync<InventoryItem>(
+            "inventory_items",
+            $"id=eq.{id}&select=*"
+        );
 
     public async Task AddStockAsync(string itemId, decimal quantity, string? note, string userId)
     {
         var item = await GetByIdAsync(itemId);
         if (item == null) return;
+
         var newStock = item.CurrentStock + quantity;
-        await _db.UpdateAsync("inventory_items", "id", itemId, new { current_stock = newStock });
+
+        await _db.UpdateAsync("inventory_items", "id", itemId, new
+        {
+            current_stock = newStock
+        });
+
         await _db.InsertAsync<InventoryLog>("inventory_logs", new
         {
             inventory_item_id = itemId,
@@ -201,7 +205,7 @@ public async Task<List<InventoryItem>> GetLowStockAsync()
             performed_by = userId
         });
     }
-    public decimal? StockPct { get; set; }
+
     public async Task UpdateItemAsync(InventoryItem item)
         => await _db.UpdateAsync("inventory_items", "id", item.Id, new
         {
@@ -212,29 +216,43 @@ public async Task<List<InventoryItem>> GetLowStockAsync()
         });
 
     public async Task CreateItemAsync(InventoryItem item)
-        => await _db.InsertAsync<InventoryItem>("inventory_items", new
-        {
-            name = item.Name,
-            unit = item.Unit,
-            current_stock = item.CurrentStock,
-            critical_level = item.CriticalLevel
-        });
+        => await _db.InsertAsync<InventoryItem>(
+            "inventory_items",
+            new
+            {
+                name = item.Name,
+                unit = item.Unit,
+                current_stock = item.CurrentStock,
+                critical_level = item.CriticalLevel
+            }
+        );
 
-    public async Task DeductForTransactionAsync(string transactionId,
-        List<TransactionItem> items, string userId)
+    public async Task DeductForTransactionAsync(
+        string transactionId,
+        List<TransactionItem> items,
+        string userId)
     {
         foreach (var ti in items)
         {
-            var recipes = await _db.SelectAsync<ProductRecipe>("product_recipes",
-                $"product_id=eq.{ti.ProductId}&select=*");
+            var recipes = await _db.SelectAsync<ProductRecipe>(
+                "product_recipes",
+                $"product_id=eq.{ti.ProductId}&select=*"
+            );
+
             foreach (var r in recipes)
             {
                 var deduct = r.Quantity * ti.Quantity;
                 var inv = await GetByIdAsync(r.InventoryItemId);
+
                 if (inv == null) continue;
+
                 var newStock = Math.Max(0, inv.CurrentStock - deduct);
-                await _db.UpdateAsync("inventory_items", "id", r.InventoryItemId,
-                    new { current_stock = newStock });
+
+                await _db.UpdateAsync("inventory_items", "id", r.InventoryItemId, new
+                {
+                    current_stock = newStock
+                });
+
                 await _db.InsertAsync<InventoryLog>("inventory_logs", new
                 {
                     inventory_item_id = r.InventoryItemId,
@@ -263,57 +281,96 @@ public class TransactionService
 
     public async Task<Transaction?> CreateAsync(Transaction transaction, string userId)
     {
-        var created = await _db.InsertAsync<Transaction>("transactions", new
-        {
-            transaction_ref = "", // trigger fills this
-            cashier_id = userId,
-            payment_method = transaction.PaymentMethod,
-            subtotal = transaction.Subtotal,
-            total_amount = transaction.TotalAmount,
-            cash_tendered = transaction.CashTendered,
-            change_amount = transaction.ChangeAmount,
-            status = "completed"
-        });
+        var created = await _db.InsertAsync<Transaction>(
+            "transactions",
+            new
+            {
+                transaction_ref = "",
+                cashier_id = userId,
+                payment_method = transaction.PaymentMethod,
+                subtotal = transaction.Subtotal,
+                total_amount = transaction.TotalAmount,
+                cash_tendered = transaction.CashTendered,
+                change_amount = transaction.ChangeAmount,
+                status = "completed"
+            }
+        );
+
         if (created == null) return null;
 
         foreach (var item in transaction.Items)
-            await _db.InsertAsync<TransactionItem>("transaction_items", new
-            {
-                transaction_id = created.Id,
-                product_id = item.ProductId,
-                product_name = item.ProductName,
-                unit_price = item.UnitPrice,
-                quantity = item.Quantity,
-                subtotal = item.Subtotal
-            });
+        {
+            await _db.InsertAsync<TransactionItem>(
+                "transaction_items",
+                new
+                {
+                    transaction_id = created.Id,
+                    product_id = item.ProductId,
+                    product_name = item.ProductName,
+                    unit_price = item.UnitPrice,
+                    quantity = item.Quantity,
+                    subtotal = item.Subtotal
+                }
+            );
+        }
 
         await _inventory.DeductForTransactionAsync(created.Id, transaction.Items, userId);
+
         return created;
     }
 
-    public async Task<List<Transaction>> GetRecentAsync(int limit = 50)
+    public async Task<List<Transaction>> GetRecentAsync(int limit = 20)
     {
-        var txns = await _db.SelectAsync<Transaction>("transactions",
-            $"select=*&order=created_at.desc&limit={limit}");
+        var txns = await _db.SelectAsync<Transaction>(
+            "transactions",
+            $"select=*&order=created_at.desc&limit={limit}"
+        );
+
         foreach (var t in txns)
-            t.Items = await _db.SelectAsync<TransactionItem>("transaction_items",
-                $"transaction_id=eq.{t.Id}&select=*");
+        {
+            t.Items = await _db.SelectAsync<TransactionItem>(
+                "transaction_items",
+                $"transaction_id=eq.{t.Id}&select=*"
+            );
+        }
+
         return txns;
     }
 
     public async Task<List<Transaction>> GetByDateRangeAsync(DateTime from, DateTime to)
     {
-        var f = from.ToString("yyyy-MM-ddT00:00:00");
-        var t2 = to.ToString("yyyy-MM-ddT23:59:59");
-        var txns = await _db.SelectAsync<Transaction>("transactions",
-            $"created_at=gte.{f}&created_at=lte.{t2}&status=eq.completed&order=created_at.desc&select=*");
+        var phTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila");
+
+        var fromLocal = from.Date;
+        var toLocal = to.Date.AddDays(1).AddTicks(-1);
+
+        var fromUnspecified = DateTime.SpecifyKind(fromLocal, DateTimeKind.Unspecified);
+        var toUnspecified = DateTime.SpecifyKind(toLocal, DateTimeKind.Unspecified);
+
+        var fromUtc = TimeZoneInfo.ConvertTimeToUtc(fromUnspecified, phTimeZone);
+        var toUtc = TimeZoneInfo.ConvertTimeToUtc(toUnspecified, phTimeZone);
+
+        var f = fromUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ");
+        var t2 = toUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ");
+
+        var txns = await _db.SelectAsync<Transaction>(
+            "transactions",
+            $"created_at=gte.{f}&created_at=lte.{t2}&status=eq.completed&order=created_at.desc&select=*"
+        );
+
         foreach (var t in txns)
-            t.Items = await _db.SelectAsync<TransactionItem>("transaction_items",
-                $"transaction_id=eq.{t.Id}&select=*");
+        {
+            t.Items = await _db.SelectAsync<TransactionItem>(
+                "transaction_items",
+                $"transaction_id=eq.{t.Id}&select=*"
+            );
+        }
+
         return txns;
     }
 }
 
+// ── Report Service ────────────────────────────────────────────
 // ── Report Service ────────────────────────────────────────────
 public class ReportService
 {
@@ -329,40 +386,52 @@ public class ReportService
     public async Task<DailyAnalytics> GetDashboardAnalyticsAsync(string period = "Today")
     {
         var (from, to) = GetDateRange(period);
+
         var transactions = await _txn.GetByDateRangeAsync(from, to);
         var allInventory = await _inventory.GetAllAsync();
 
-        var lowStock = allInventory.Where(i => i.IsLowStock).ToList();
+        var lowStock = allInventory
+            .Where(i => i.IsLowStock)
+            .ToList();
 
-        // Top selling product
-        var productSales = transactions
-            .SelectMany(t => t.Items)
+        var allItems = transactions
+            .SelectMany(t => t.Items ?? new List<TransactionItem>())
+            .ToList();
+
+        var productSales = allItems
             .GroupBy(i => i.ProductName)
-            .Select(g => new { Name = g.Key, Qty = g.Sum(x => x.Quantity) })
+            .Select(g => new
+            {
+                Name = g.Key,
+                Qty = g.Sum(x => x.Quantity)
+            })
             .OrderByDescending(x => x.Qty)
             .FirstOrDefault();
 
-        // Weekly sales (last 7 days)
         var weeklySales = new List<WeeklySalesPoint>();
         var today = DateTime.Today;
+
         for (int i = 6; i >= 0; i--)
         {
             var day = today.AddDays(-i);
-            var dayTxns = await _txn.GetByDateRangeAsync(day, day);
+
+            var revenue = transactions
+                .Where(t => t.CreatedAt.HasValue &&
+                            t.CreatedAt.Value.ToOffset(TimeSpan.FromHours(8)).Date == day.Date)
+                .Sum(t => t.TotalAmount ?? 0);
+
             weeklySales.Add(new WeeklySalesPoint
             {
                 DayLabel = day.ToString("ddd"),
-                Revenue = dayTxns.Sum(t => t.TotalAmount)
+                Revenue = revenue
             });
         }
 
-        // Top products
-        var topProducts = transactions
-            .SelectMany(t => t.Items)
+        var topProducts = allItems
             .GroupBy(i => i.ProductName)
             .Select(g => new ProductSalesSummary
             {
-                ProductName = g.Key,
+                ProductName = g.Key ?? "Unknown Product",
                 TotalSold = g.Sum(x => x.Quantity),
                 TotalRevenue = g.Sum(x => x.Subtotal)
             })
@@ -370,10 +439,38 @@ public class ReportService
             .Take(5)
             .ToList();
 
+        // Growth percentage: today vs yesterday
+        var todayRevenue = transactions.Sum(t => t.TotalAmount ?? 0);
+
+        var yesterday = DateTime.Today.AddDays(-1);
+        var yesterdayTransactions = await _txn.GetByDateRangeAsync(yesterday, yesterday);
+        var yesterdayRevenue = yesterdayTransactions.Sum(t => t.TotalAmount ?? 0);
+
+        decimal revenueGrowth = 0;
+
+        if (yesterdayRevenue > 0)
+        {
+            revenueGrowth = Math.Min(100,((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100
+);
+        }
+
+        decimal transactionGrowth = 0;
+
+        if (yesterdayTransactions.Count > 0)
+        {
+            transactionGrowth = Math.Min(
+            100,
+            ((decimal)(transactions.Count - yesterdayTransactions.Count)
+            / yesterdayTransactions.Count) * 100
+);
+        }
+
         return new DailyAnalytics
         {
-            TodayRevenue = transactions.Sum(t => t.TotalAmount),
+            TodayRevenue = todayRevenue,
+            RevenueGrowth = revenueGrowth,
             TodayTransactions = transactions.Count,
+            TransactionGrowth = transactionGrowth,
             TopSellingProduct = productSales?.Name ?? "—",
             LowStockCount = lowStock.Count,
             WeeklySales = weeklySales,
@@ -382,11 +479,12 @@ public class ReportService
         };
     }
 
-    private static (DateTime from, DateTime to) GetDateRange(string period) => period switch
-    {
-        "Weekly" => (DateTime.Today.AddDays(-6), DateTime.Today),
-        "Monthly" => (new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1), DateTime.Today),
-        "Yearly" => (new DateTime(DateTime.Today.Year, 1, 1), DateTime.Today),
-        _ => (DateTime.Today, DateTime.Today)  // Today
-    };
+    private static (DateTime from, DateTime to) GetDateRange(string period)
+        => period switch
+        {
+            "Weekly" => (DateTime.Today.AddDays(-6), DateTime.Today),
+            "Monthly" => (new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1), DateTime.Today),
+            "Yearly" => (new DateTime(DateTime.Today.Year, 1, 1), DateTime.Today),
+            _ => (DateTime.Today, DateTime.Today)
+        };
 }
