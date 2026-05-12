@@ -1,7 +1,22 @@
 using CommonBrewPOS.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
-var builder = WebApplication.CreateBuilder(args);
+var options = new WebApplicationOptions
+{
+    Args = args
+};
+
+var builder = WebApplication.CreateBuilder(options);
+
+builder.Configuration.Sources.Clear();
+
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+    .AddJsonFile(
+        $"appsettings.{builder.Environment.EnvironmentName}.json",
+        optional: true,
+        reloadOnChange: false)
+    .AddEnvironmentVariables();
 
 // Add services
 builder.Services.AddControllersWithViews();
