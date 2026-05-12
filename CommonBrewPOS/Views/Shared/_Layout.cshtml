@@ -103,8 +103,8 @@
         <header class="top-bar">
             <span id="topClock" class="top-clock">--:--:--</span>
             <div class="top-bar-actions">
-                <button class="notif-btn" id="notifBtn" title="Notifications">
-                                                                                        🔔
+               
+                <button class="notif-btn" id="notifBtn" title="Notifications">🔔
                     @if (ViewBag.LowStockCount > 0)
                     {
                         <span class="notif-badge">@ViewBag.LowStockCount</span>
@@ -113,7 +113,7 @@
                 @if (User.IsInRole("Administrator"))
                 {
                     <button class="ai-btn" id="aiToggle">
-                        <h3><i class="fas fa-robot"></i> CommonBot</h3>
+                        <i class="fas fa-robot"></i> CommonBot
                     </button>
                 }
             </div>
